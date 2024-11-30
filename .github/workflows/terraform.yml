@@ -1,0 +1,36 @@
+name: Terraform GCS Buckets
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  plan-apply:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        user: [user1, user2]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Detect Changes
+        id: detect-changes
+        run: |
+          changed_users=$(bash scripts/detect_changes.sh)
+          echo "changed_users=${changed_users}" >> $GITHUB_ENV
+
+      - name: Run Terraform
+        if: contains(env.changed_users, matrix.user)
+        run: |
+          terraform workspace select ${{ matrix.user }} || terraform workspace new ${{ matrix.user }}
+          terraform init
+          terraform plan -var-file=users/${{ matrix.user }}.tfvars -out=${{ matrix.user }}.plan
+          terraform apply ${{ matrix.user }}.plan
